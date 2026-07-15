@@ -1,0 +1,9 @@
+{
+  "name": "chinapipe-dashboard-pages",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitHub Pages host for the Chinapipe dashboard.",
+  "scripts": {
+    "test": "node --test"
+  }
+}
