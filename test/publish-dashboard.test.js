@@ -63,3 +63,38 @@ test("publishes a changed dashboard through the GitHub Contents API", (t) => {
     ["gh", ["api", "--method", "PUT", "repos/Xjiaqier/chinapipe-dashboard-pages/contents/site/index.html", "--input", "-"]]
   ]);
 });
+
+test("retries a transient GitHub API read failure before publishing", (t) => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "chinapipe-pages-"));
+  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+
+  const sourceHtmlPath = path.join(tempDir, "panel.html");
+  fs.writeFileSync(sourceHtmlPath, "<html><body>dashboard</body></html>", "utf8");
+  const calls = [];
+  const delays = [];
+  const runCommand = (command, args, options) => {
+    calls.push([command, args, options]);
+    const isRead = args[0] === "api" && args.length === 2;
+    if (isRead && calls.length === 1) {
+      return { status: 1, stderr: "HTTP/2 stream was cancelled" };
+    }
+    if (isRead) {
+      return { status: 1, stderr: "Not Found" };
+    }
+    return { status: 0, stdout: "{}" };
+  };
+
+  const result = publishDashboard({
+    sourceHtmlPath,
+    projectRoot: tempDir,
+    repository: "Xjiaqier/chinapipe-dashboard-pages",
+    runCommand,
+    waitForRetry(milliseconds) {
+      delays.push(milliseconds);
+    }
+  });
+
+  assert.equal(result.published, true);
+  assert.equal(calls.length, 3);
+  assert.deepEqual(delays, [1000]);
+});
